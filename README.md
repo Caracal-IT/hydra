@@ -23,7 +23,8 @@ This repository includes a Copilot instruction file at `.github/copilot.yml`. Th
 ## Local checks script
 
 - The repository contains `.github/scripts/run_copilot_checks.sh`. This script:
-  - runs `go mod tidy` to ensure dependencies and create `go.sum`;
+  - runs `go work sync` and `go mod tidy` to ensure dependencies and create `go.sum`;
+  - verifies benchmarks and examples exist for packages with Go files;
   - runs `go test ./... -coverprofile=coverage.out` and writes the overall coverage percentage to `.coverage_current`;
   - compares coverage to `.coverage_baseline` and exits non-zero if coverage decreased.
 

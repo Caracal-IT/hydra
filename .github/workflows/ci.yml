@@ -2,87 +2,91 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
 
 jobs:
   build:
-    runs-on: ${{ matrix.runner }}
+    name: Build and Test (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-latest
-            goos: linux
-            goarch: amd64
-            ext: ""
-          - runner: ubuntu-latest
-            goos: linux
-            goarch: arm64
-            ext: ""
-          - runner: ubuntu-latest
-            goos: linux
-            goarch: arm
-            ext: ""
-          - runner: windows-latest
-            goos: windows
-            goarch: amd64
-            ext: ".exe"
-          - runner: macos-latest
-            goos: darwin
-            goarch: amd64
-            ext: ""
+          - os: ubuntu-latest
+            name: linux-amd64
+            GOOS: linux
+            GOARCH: amd64
+            GOARM: ''
+          - os: ubuntu-latest
+            name: linux-arm64
+            GOOS: linux
+            GOARCH: arm64
+            GOARM: ''
+          - os: ubuntu-latest
+            name: linux-arm
+            GOOS: linux
+            GOARCH: arm
+            GOARM: '7'
+          - os: macos-latest
+            name: darwin-amd64
+            GOOS: darwin
+            GOARCH: amd64
+            GOARM: ''
+          - os: windows-latest
+            name: windows-amd64
+            GOOS: windows
+            GOARCH: amd64
+            GOARM: ''
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: '1.25'
 
-      - name: Ensure modules and generate go.sum
-        shell: bash
+      - name: Ensure go.sum exists
         run: |
-          cd "${{ github.workspace }}"
-          go mod tidy
+          go work sync || true
+          go mod tidy ./... || true
+          if [ -d ./src/gohydra ]; then (cd ./src/gohydra && go mod tidy) || true; fi
 
-      - name: Cache Go modules
+      - name: Cache Go build and modules
         uses: actions/cache@v4
         with:
           path: |
-            ~/go/pkg/mod
             ~/.cache/go-build
+            ${{ env.GOMODCACHE }}
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: ${{ runner.os }}-go-
+          restore-keys: |
+            ${{ runner.os }}-go-
 
-      - name: Run Copilot checks (tests + coverage + baseline enforcement)
-        shell: bash
-        run: |
-          chmod +x .github/scripts/run_copilot_checks.sh
-          .github/scripts/run_copilot_checks.sh
+      - name: Run Copilot checks (tests, coverage, baseline)
+        run: ./.github/scripts/run_copilot_checks.sh
 
-      - name: Build
-        shell: bash
+      - name: Build binaries
+        env:
+          GOOS: ${{ matrix.GOOS }}
+          GOARCH: ${{ matrix.GOARCH }}
+          GOARM: ${{ matrix.GOARM }}
         run: |
-          set -euo pipefail
           mkdir -p artifacts
-          # For arm32 builds ensure GOARM is set (default to 7)
-          if [ "${{ matrix.goarch }}" = "arm" ]; then
-            export GOARM=7
-          fi
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o artifacts/hydra-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} ./src
+          outname=hydra_${{ matrix.name }}
+          if [ "${{ matrix.GOOS }}" = "windows" ]; then outname="${outname}.exe"; fi
+          echo "Building for ${GOOS}/${GOARCH} ${GOARM} -> artifacts/${outname}"
+          GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.GOARCH }} GOARM=${{ matrix.GOARM }} go build -o artifacts/${outname} ./...
 
       - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
-          name: hydra-binaries
-          path: artifacts/*
+          name: binaries-${{ matrix.name }}
+          path: artifacts/
 
       - name: Upload coverage file
         uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: .coverage_current
+

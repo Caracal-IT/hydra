@@ -1,34 +1,23 @@
-# This file gives guidance to GitHub Copilot for this repository.
-# Copilot will read these instructions when generating or changing code in the editor.
-# Important project rules and requirements follow.
+# Copilot repository instructions
+# This file documents required actions for Copilot-generated changes.
+# NOTE: Copilot itself may not execute scripts. These instructions are
+# mandatory for humans and automation to run after Copilot changes.
 
-# Project rules
+run_checks:
+  - path: ".github/scripts/run_copilot_checks.sh"
+    description: "Run this script after any code generation or modification by Copilot. It runs go mod tidy, tests with coverage, and enforces coverage baseline."
+
 rules:
-  - message: "Follow best practices: idiomatic Go, modular design, small functions, and clear comments."
-  - message: "All Go source files live under /src and imports may include '/src' in the path. Do not move source files outside /src."
-  - message: "When adding or modifying Go code, include unit tests, benchmarks, and examples in the same package."
-  - message: "Use the newest supported Go syntax (go 1.25) and prefer generic and idiomatic patterns."
-  - message: "Run the repository checks script after any generated or modified code: .github/scripts/run_copilot_checks.sh"
-  - message: "Do not introduce harmful, copyrighted, or irrelevant content. Keep patches short and focused."
+  - follow_best_practices: true
+  - require_tests: true
+  - require_benchmarks: true
+  - require_examples: true
+  - go_version: 1.25
+  - module_path_must_reflect_repo: true
+  - source_files_under_src: true
 
-# Developer guidance
-developer:
-  - name: "Enforce tests and coverage"
-    message: "Before producing a change, ensure corresponding tests, benchmarks and examples are present and pass locally. Coverage must not decrease in CI."
+message: |
+  Every time Copilot changes or generates code in this repository, the responsible agent
+  MUST run the script: .github/scripts/run_copilot_checks.sh
+  This enforces tests, coverage, and module tidiness.
 
-# Recommended local check script (version-controlled) that should be executed on every change
-check_script: ".github/scripts/run_copilot_checks.sh"
-
-# Human contact
-owner: "github.com/Caracal-IT/hydra"
-
-instructions:
-  - Copilot must follow the guidelines, coding standards, best practices, and the newest syntax defined in this workspace.
-  - Copilot should always check for errors after making code changes.
-  - Copilot must update documentation and tests when code is changed.
-  - When adding or modifying Go code, Copilot must create or update unit tests, benchmark tests, and example code as appropriate.
-  - Copilot should avoid generating code that is harmful, hateful, racist, sexist, lewd, violent, or irrelevant to software engineering.
-  - Copilot must not generate code that violates copyrights.
-  - Copilot should keep answers short and impersonal.
-  - Copilot must respond in English.
-enforcement: "These instructions must be followed every time Copilot generates or changes code in this repository."

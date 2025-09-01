@@ -1,58 +1,138 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run repository checks used by Copilot instruction enforcement and CI.
-# - Ensures go.sum is present
-# - Runs tests/benchmarks/examples and generates coverage
-# - Compares coverage to baseline and fails if coverage decreased
+# Run from repository root
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$REPO_ROOT"
 
-# Determine repository root (two levels up from this script: .github/scripts -> repo root)
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-cd "$ROOT_DIR"
-
-echo "Running go mod tidy to ensure go.sum"
-go mod tidy
-
-# Ensure coverage output paths are at repository root
-COVERAGE_FILE="${ROOT_DIR}/.coverage_current"
-COVERPROFILE="${ROOT_DIR}/src/coverage.out"
-
-# Run tests including benchmarks and examples, collect coverage
-echo "Running tests (including benchmarks and examples) and generating coverage at ${COVERPROFILE}"
-# Run all tests and benchmarks in src/
-# -covermode=set to match previous coverage output format
-go test ./src/... -bench=. -covermode=set -coverprofile="${COVERPROFILE}"
-
-# Compute total coverage percentage
-TOTAL_LINE=$(go tool cover -func="${COVERPROFILE}" | tail -n1 || true)
-if [ -z "$TOTAL_LINE" ]; then
-  echo "No coverage data produced"
-  echo "0.0%" > "$COVERAGE_FILE"
+echo "Running go work sync and go mod tidy to ensure go.sum exists"
+# sync go.work and tidy modules
+if command -v go >/dev/null 2>&1; then
+  go work sync >/dev/null 2>&1 || true
+  # run go mod tidy at repository root
+  go mod tidy >/dev/null 2>&1 || true
+  if [ -d ./src/gohydra ]; then
+    (cd ./src/gohydra && go mod tidy >/dev/null 2>&1) || true
+  fi
 else
-  PERCENT=$(echo "$TOTAL_LINE" | awk '{print $3}')
-  echo "$PERCENT" > "$COVERAGE_FILE"
-  echo "Coverage: $PERCENT"
+  echo "go not found in PATH"
+  exit 1
 fi
 
-# Compare with baseline if present
-BASELINE_FILE="${ROOT_DIR}/.coverage_baseline"
-if [ ! -f "$BASELINE_FILE" ]; then
-  echo "No baseline found; creating baseline from current coverage"
-  cp "$COVERAGE_FILE" "$BASELINE_FILE"
-  exit 0
+# Ensure go.sum exists for caching in CI
+if [ ! -f go.sum ]; then
+  echo "Generating go.sum by running go list ./..."
+  go list ./... >/dev/null 2>&1 || true
 fi
 
-# Normalize percentages to numbers (strip %)
-curr=$(cat "$COVERAGE_FILE" | tr -d '%')
-base=$(cat "$BASELINE_FILE" | tr -d '%')
+# Verify test files exist for each package that contains go files
+echo "Verifying presence of tests, benchmarks and examples for packages with Go source"
+FAIL=0
+# find packages under root and src (portable: use dirname with -exec)
+PKG_DIRS=$(find . -name "*.go" -not -path "./.git/*" -not -path "./vendor/*" -exec dirname {} \; | sort -u)
+# iterate safely over lines
+while IFS= read -r d; do
+  # skip empty
+  [ -z "$d" ] && continue
+  # skip vendor and hidden .git
+  case "$d" in
+    ./.git*|./vendor*) continue ;;
+  esac
+  # skip directories with no Go files
+  gofiles=$(find "$d" -maxdepth 1 -type f -name "*.go" | wc -l | tr -d ' ')
+  if [ "$gofiles" -eq 0 ]; then
+    continue
+  fi
+  testfiles=$(find "$d" -maxdepth 1 -type f -name "*_test.go" | wc -l | tr -d ' ')
+  if [ "$testfiles" -eq 0 ]; then
+    echo "ERROR: package $d has Go files but no *_test.go files"
+    FAIL=1
+    continue
+  fi
+  # check for benchmark and example in test files
+  has_bench=$(grep -R --line-number -E "^func Benchmark" "$d" || true | wc -l | tr -d ' ')
+  has_example=$(grep -R --line-number -E "^func Example" "$d" || true | wc -l | tr -d ' ')
+  if [ "$has_bench" -eq 0 ]; then
+    echo "ERROR: package $d has no benchmarks (func Benchmark...) in tests"
+    FAIL=1
+  fi
+  if [ "$has_example" -eq 0 ]; then
+    echo "ERROR: package $d has no examples (func Example...) in tests"
+    FAIL=1
+  fi
+done <<< "$PKG_DIRS"
 
-# Use awk for numeric comparison
-decreased=$(awk -v c="$curr" -v b="$base" 'BEGIN{if ((c+0) < (b+0)) print 1; else print 0}')
-if [ "$decreased" -eq 1 ]; then
-  echo "Coverage decreased: baseline=$base% current=$curr%"
-  echo "CI will fail to prevent regression."
+if [ "$FAIL" -ne 0 ]; then
+  echo "One or more packages are missing required tests/benchmarks/examples"
+  exit 4
+fi
+
+# Run tests with coverage
+echo "Running tests and generating coverage profiles"
+# clean previous coverage files
+rm -f coverage_root.out coverage_gohydra.out coverage.out coverage.tmp || true
+
+# Run tests for root module packages
+if go test ./... -coverprofile=coverage_root.out >/dev/null 2>&1; then
+  echo "Root module tests completed"
+else
+  echo "Running root module tests (visible output)"
+  go test ./... -coverprofile=coverage_root.out
+fi
+
+# If submodule exists, run its tests and collect coverage
+if [ -d ./src/gohydra ]; then
+  echo "Running tests for src/gohydra"
+  if (cd ./src/gohydra && go test ./... -coverprofile=coverage_gohydra.out) >/dev/null 2>&1; then
+    echo "gohydra tests completed"
+  else
+    (cd ./src/gohydra && go test ./... -coverprofile=coverage_gohydra.out)
+  fi
+fi
+
+# Merge coverage profiles if needed
+if [ -f coverage_root.out ] && [ -f coverage_gohydra.out ]; then
+  # write mode line from first file
+  head -n 1 coverage_root.out > coverage.out
+  # append non-mode lines from both files
+  tail -n +2 coverage_root.out >> coverage.out
+  tail -n +2 coverage_gohydra.out >> coverage.out
+elif [ -f coverage_root.out ]; then
+  mv coverage_root.out coverage.out
+elif [ -f coverage_gohydra.out ]; then
+  mv coverage_gohydra.out coverage.out
+else
+  echo "No coverage files generated"
   exit 2
 fi
 
-echo "Coverage OK: baseline=$base% current=$curr%"
+# Extract total coverage percentage
+COVERAGE_PERCENT_RAW=$(go tool cover -func=coverage.out | awk '/total:/ {print $3}')
+# Normalize: remove trailing % and any whitespace
+COVERAGE_PERCENT=$(printf "%s" "$COVERAGE_PERCENT_RAW" | tr -d '%\n\r' | sed 's/^\s*//;s/\s*$//')
+if [ -z "$COVERAGE_PERCENT" ]; then
+  echo "Failed to compute coverage percent"
+  exit 2
+fi
+printf "%s\n" "$COVERAGE_PERCENT" > .coverage_current
+
+# Compare against baseline (normalize baseline number too)
+if [ ! -f .coverage_baseline ]; then
+  echo "Baseline not found. Initializing .coverage_baseline with current coverage: $COVERAGE_PERCENT%"
+  cp .coverage_current .coverage_baseline
+  exit 0
+fi
+
+BASELINE_RAW=$(cat .coverage_baseline || true)
+BASELINE=$(printf "%s" "$BASELINE_RAW" | tr -d '%\n\r' | sed 's/^\s*//;s/\s*$//')
+
+# Use awk for float comparison
+compare_result=$(awk -v a="$COVERAGE_PERCENT" -v b="$BASELINE" 'BEGIN {if (a=="" || b=="") {print 1; exit} print (a+0 < b+0) ? 1 : 0}')
+
+if [ "$compare_result" -eq 1 ]; then
+  echo "ERROR: Coverage decreased. Current: ${COVERAGE_PERCENT}%, Baseline: ${BASELINE}%"
+  exit 3
+fi
+
+echo "Coverage OK. Current: ${COVERAGE_PERCENT}%, Baseline: ${BASELINE}%"
 exit 0

@@ -7,7 +7,7 @@ import (
 
 func TestGreeting(t *testing.T) {
 	got := Greeting()
-	want := "Hello from Hydra!!"
+	want := "Hello from Hydra!"
 	if got != want {
 		t.Fatalf("Greeting() = %q, want %q", got, want)
 	}

@@ -8,101 +8,26 @@
 *.test
 *.out
 coverage.out
-coverage.txt
 .coverage_current
 .coverage_baseline
+.coverage_previous
+.coverage_baseline
 
-# Go workspace and cache
+# Go modules and cache
 **/vendor/
-**/.idea/
-**/.vscode/
-**/.DS_Store
-**/.env
-**/.env.*
-**/node_modules/
-**/coverage/
-**/.golangci.yml
-**/.golangci.toml
-**/.golangci.json
-**/.golangci.yaml
-**/.golangci.local.yaml
-**/.golangci.local.yml
-**/.golangci.local.json
-**/.golangci.local.toml
-**/.golangci.local.env
-**/.golangci.local.env.*
-**/.golangci.local.env.*.example
-**/.golangci.local.env.example
-**/.golangci.local.env.sample
-**/.golangci.local.env.sample.*
-**/.golangci.local.env.sample.*.example
-**/.golangci.local.env.sample.example
-**/.golangci.local.env.sample.sample
-**/.golangci.local.env.sample.sample.*
-**/.golangci.local.env.sample.sample.*.example
-**/.golangci.local.env.sample.sample.example
-**/.golangci.local.env.sample.sample.sample
-**/.golangci.local.env.sample.sample.sample.*
-**/.golangci.local.env.sample.sample.sample.*.example
-**/.golangci.local.env.sample.sample.sample.example
-**/.golangci.local.env.sample.sample.sample.sample
-**/.golangci.local.env.sample.sample.sample.sample.*
-**/.golangci.local.env.sample.sample.sample.sample.*.example
-**/.golangci.local.env.sample.sample.sample.sample.example
-**/.golangci.local.env.sample.sample.sample.sample.sample
-**/.golangci.local.env.sample.sample.sample.sample.sample.*
-**/.golangci.local.env.sample.sample.sample.sample.sample.*.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.*
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.*.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.*
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.*.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.*
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.*.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.*
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.*.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.*
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.*.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.*
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.*.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.*
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.*.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.*
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.*.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.example
-**/.golangci.local.env/sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.example
+**/pkg/mod/
+**/Godeps/
 
-# GoLand IDE files
+# IDEs and editors
 .idea/
 *.iml
-out/
+.vscode/
 
-# Docker files
+# Docker
 Dockerfile
 .dockerignore
-**/docker-compose.yml
+docker-compose.yml
 **/docker-compose.*.yml
-**/docker-compose.yaml
-**/docker-compose.*.yaml
-**/docker/
-**/docker-build/
-**/docker-cache/
-**/docker-data/
 
 # Misc
 *.log
@@ -115,14 +40,26 @@ Dockerfile
 *.rej
 
 # OS generated files
+.DS_Store
 Thumbs.db
 Desktop.ini
 
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Go test cache
-**/.test/
+# Test and coverage
 **/testdata/
+*.coverprofile
+coverage.out
+
+# Ensure src folder remains in repo
+/src/
+
+# Keep local environment files out
+.env
+.env.*
+
+# Accept common binary directories
+dist/
+build/
+
+# Allow keep of important repo files (explicit)
+!.github/
+README.md
