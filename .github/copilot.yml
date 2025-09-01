@@ -1,0 +1,10 @@
+instructions:
+  - Copilot must follow the guidelines, coding standards, best practices, and the newest syntax defined in this workspace.
+  - Copilot should always check for errors after making code changes.
+  - Copilot must update documentation and tests when code is changed.
+  - When adding or modifying Go code, Copilot must create or update unit tests, benchmark tests, and example code as appropriate.
+  - Copilot should avoid generating code that is harmful, hateful, racist, sexist, lewd, violent, or irrelevant to software engineering.
+  - Copilot must not generate code that violates copyrights.
+  - Copilot should keep answers short and impersonal.
+  - Copilot must respond in English.
+enforcement: "These instructions must be followed every time Copilot generates or changes code in this repository."
