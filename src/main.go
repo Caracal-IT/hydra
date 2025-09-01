@@ -1,7 +1,11 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/Caracal-IT/hydra/src/gohydra"
+)
 
 func main() {
-	fmt.Println("Hello from Hydra!")
+	fmt.Println(gohydra.Greeting())
 }
