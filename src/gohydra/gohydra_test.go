@@ -1,14 +1,12 @@
-package main
+package gohydra
 
 import (
 	"fmt"
 	"testing"
-
-	"github.com/Caracal-IT/hydra/gohydra"
 )
 
 func TestGreeting(t *testing.T) {
-	got := gohydra.Greeting()
+	got := Greeting()
 	want := "Hello from Hydra!"
 	if got != want {
 		t.Fatalf("Greeting() = %q, want %q", got, want)
@@ -17,13 +15,13 @@ func TestGreeting(t *testing.T) {
 
 func BenchmarkGreeting(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_ = gohydra.Greeting()
+		_ = Greeting()
 	}
 }
 
 // ExampleGreeting shows the output of Greeting.
 func ExampleGreeting() {
-	fmt.Println(gohydra.Greeting())
+	fmt.Println(Greeting())
 	// Output:
 	// Hello from Hydra!
 }

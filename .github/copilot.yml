@@ -1,3 +1,27 @@
+# This file gives guidance to GitHub Copilot for this repository.
+# Copilot will read these instructions when generating or changing code in the editor.
+# Important project rules and requirements follow.
+
+# Project rules
+rules:
+  - message: "Follow best practices: idiomatic Go, modular design, small functions, and clear comments."
+  - message: "All Go source files live under /src and imports may include '/src' in the path. Do not move source files outside /src."
+  - message: "When adding or modifying Go code, include unit tests, benchmarks, and examples in the same package."
+  - message: "Use the newest supported Go syntax (go 1.25) and prefer generic and idiomatic patterns."
+  - message: "Run the repository checks script after any generated or modified code: .github/scripts/run_copilot_checks.sh"
+  - message: "Do not introduce harmful, copyrighted, or irrelevant content. Keep patches short and focused."
+
+# Developer guidance
+developer:
+  - name: "Enforce tests and coverage"
+    message: "Before producing a change, ensure corresponding tests, benchmarks and examples are present and pass locally. Coverage must not decrease in CI."
+
+# Recommended local check script (version-controlled) that should be executed on every change
+check_script: ".github/scripts/run_copilot_checks.sh"
+
+# Human contact
+owner: "github.com/Caracal-IT/hydra"
+
 instructions:
   - Copilot must follow the guidelines, coding standards, best practices, and the newest syntax defined in this workspace.
   - Copilot should always check for errors after making code changes.

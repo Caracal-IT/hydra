@@ -1,24 +1,30 @@
-# Copilot Instructions
+# Copilot Instructions (readme_copilot)
 
-This repository uses GitHub Copilot with a custom instruction file located at `.github/copilot.yml`.
+This repository includes a Copilot instruction file at `.github/copilot.yml`. The contents and essential rules are reproduced here so that the guidance is visible in the repository README.
 
 ## Purpose
-The instruction file ensures Copilot follows workspace-specific guidelines, coding standards, and best practices every time it generates or changes code.
 
-## How It Works
-- The `.github/copilot.yml` file contains rules and standards for Copilot.
-- Copilot reads and applies these instructions automatically for every code generation or modification.
+- Ensure Copilot follows workspace-specific guidelines, coding standards, and best practices every time it generates or changes code.
 
-## Key Guidelines
-- Always check for errors after making code changes.
-- Update documentation and tests when code is changed.
-- Avoid generating code that is harmful, hateful, racist, sexist, lewd, violent, or irrelevant to software engineering.
-- Do not generate code that violates copyrights.
-- Keep answers short and impersonal.
-- Respond in English.
+## Key guidelines
 
-## Location
-- The instruction file is located at `.github/copilot.yml` in the project root.
+- Follow best practices: idiomatic Go, modular design, small functions, and clear comments.
+- All Go source files live under /src and imports may include '/src' in the path. Do not move source files outside /src.
+- When adding or modifying Go code, include unit tests, benchmarks, and examples in the same package.
+- Use the newest supported Go syntax (go 1.25) and prefer generic and idiomatic patterns.
+- Run the repository checks script after any generated or modified code: `.github/scripts/run_copilot_checks.sh`.
+- Do not introduce harmful, copyrighted, or irrelevant content.
+- Keep changes short and focused.
 
-For more details, see the instruction file itself.
+## Enforcement
 
+- Copilot must run the check script `.github/scripts/run_copilot_checks.sh` after any code generation or change.
+
+## Local checks script
+
+- The repository contains `.github/scripts/run_copilot_checks.sh`. This script:
+  - runs `go mod tidy` to ensure dependencies and create `go.sum`;
+  - runs `go test ./... -coverprofile=coverage.out` and writes the overall coverage percentage to `.coverage_current`;
+  - compares coverage to `.coverage_baseline` and exits non-zero if coverage decreased.
+
+For full rules, see `.github/copilot.yml` in the repository root.

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/Caracal-IT/hydra/src/gohydra"
+	"github.com/Caracal-IT/hydra/gohydra"
 )
 
 func main() {

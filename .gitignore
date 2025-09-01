@@ -7,6 +7,10 @@
 *.dylib
 *.test
 *.out
+coverage.out
+coverage.txt
+.coverage_current
+.coverage_baseline
 
 # Go workspace and cache
 **/vendor/
@@ -81,13 +85,6 @@
 **/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.*
 **/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.*.example
 **/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.*
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.*.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.example
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.*
-**/.golangci.local.env.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.*.example
 **/.golangci.local.env/sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.sample.example
 
 # GoLand IDE files
@@ -96,7 +93,7 @@
 out/
 
 # Docker files
-Dockerfile*
+Dockerfile
 .dockerignore
 **/docker-compose.yml
 **/docker-compose.*.yml
@@ -129,4 +126,3 @@ Desktop.ini
 # Go test cache
 **/.test/
 **/testdata/
-

@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            ext: ""
+          - runner: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            ext: ""
+          - runner: ubuntu-latest
+            goos: linux
+            goarch: arm
+            ext: ""
+          - runner: windows-latest
+            goos: windows
+            goarch: amd64
+            ext: ".exe"
+          - runner: macos-latest
+            goos: darwin
+            goarch: amd64
+            ext: ""
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.25'
+
+      - name: Ensure modules and generate go.sum
+        shell: bash
+        run: |
+          cd "${{ github.workspace }}"
+          go mod tidy
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: ${{ runner.os }}-go-
+
+      - name: Run Copilot checks (tests + coverage + baseline enforcement)
+        shell: bash
+        run: |
+          chmod +x .github/scripts/run_copilot_checks.sh
+          .github/scripts/run_copilot_checks.sh
+
+      - name: Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          # For arm32 builds ensure GOARM is set (default to 7)
+          if [ "${{ matrix.goarch }}" = "arm" ]; then
+            export GOARM=7
+          fi
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o artifacts/hydra-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} ./src
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: hydra-binaries
+          path: artifacts/*
+
+      - name: Upload coverage file
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: .coverage_current
