@@ -28,8 +28,8 @@ fi
 # Verify test files exist for each package that contains go files
 echo "Verifying presence of tests, benchmarks and examples for packages with Go source"
 FAIL=0
-# find packages under root and src (portable: use dirname with -exec)
-PKG_DIRS=$(find . -name "*.go" -not -path "./.git/*" -not -path "./vendor/*" -exec dirname {} \; | sort -u)
+# find packages under root and src (portable and safe: use -print0 and xargs)
+PKG_DIRS=$(find . -name "*.go" -not -path "./.git/*" -not -path "./vendor/*" -print0 | xargs -0 -n1 dirname | sort -u)
 # iterate safely over lines
 while IFS= read -r d; do
   # skip empty
@@ -38,20 +38,25 @@ while IFS= read -r d; do
   case "$d" in
     ./.git*|./vendor*) continue ;;
   esac
-  # skip directories with no Go files
+
+  # count Go files in directory (numeric)
   gofiles=$(find "$d" -maxdepth 1 -type f -name "*.go" | wc -l | tr -d ' ')
   if [ "$gofiles" -eq 0 ]; then
     continue
   fi
+
+  # count test files
   testfiles=$(find "$d" -maxdepth 1 -type f -name "*_test.go" | wc -l | tr -d ' ')
   if [ "$testfiles" -eq 0 ]; then
     echo "ERROR: package $d has Go files but no *_test.go files"
     FAIL=1
     continue
   fi
-  # check for benchmark and example in test files
-  has_bench=$(grep -R --line-number -E "^func Benchmark" "$d" || true | wc -l | tr -d ' ')
-  has_example=$(grep -R --line-number -E "^func Example" "$d" || true | wc -l | tr -d ' ')
+
+  # check for benchmark and example in test files — count matches
+  has_bench=$(find "$d" -maxdepth 1 -type f -name "*_test.go" -exec grep -E "^\s*func\s+Benchmark" -H {} \; 2>/dev/null | wc -l | tr -d ' ')
+  has_example=$(find "$d" -maxdepth 1 -type f -name "*_test.go" -exec grep -E "^\s*func\s+Example" -H {} \; 2>/dev/null | wc -l | tr -d ' ')
+
   if [ "$has_bench" -eq 0 ]; then
     echo "ERROR: package $d has no benchmarks (func Benchmark...) in tests"
     FAIL=1
@@ -60,6 +65,7 @@ while IFS= read -r d; do
     echo "ERROR: package $d has no examples (func Example...) in tests"
     FAIL=1
   fi
+
 done <<< "$PKG_DIRS"
 
 if [ "$FAIL" -ne 0 ]; then
@@ -103,6 +109,8 @@ elif [ -f coverage_gohydra.out ]; then
   mv coverage_gohydra.out coverage.out
 else
   echo "No coverage files generated"
+  # ensure we still create a coverage_current file to allow CI artifact upload
+  printf "%s\n" "0.0" > .coverage_current
   exit 2
 fi
 
@@ -112,6 +120,7 @@ COVERAGE_PERCENT_RAW=$(go tool cover -func=coverage.out | awk '/total:/ {print $
 COVERAGE_PERCENT=$(printf "%s" "$COVERAGE_PERCENT_RAW" | tr -d '%\n\r' | sed 's/^\s*//;s/\s*$//')
 if [ -z "$COVERAGE_PERCENT" ]; then
   echo "Failed to compute coverage percent"
+  printf "%s\n" "0.0" > .coverage_current
   exit 2
 fi
 printf "%s\n" "$COVERAGE_PERCENT" > .coverage_current
