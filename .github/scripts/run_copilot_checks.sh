@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Ensure we always produce a .coverage_current file for CI artifact upload
+printf "%s\n" "0.0" > .coverage_current || true
+
+# Ensure .coverage_current exists even on unexpected exit
+cleanup() {
+  if [ ! -f .coverage_current ]; then
+    printf "%s\n" "0.0" > .coverage_current || true
+  fi
+}
+trap cleanup EXIT
+
 # Run from repository root
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
@@ -28,34 +39,49 @@ fi
 # Verify test files exist for each package that contains go files
 echo "Verifying presence of tests, benchmarks and examples for packages with Go source"
 FAIL=0
-# find packages under root and src (portable and safe: use -print0 and xargs)
-PKG_DIRS=$(find . -name "*.go" -not -path "./.git/*" -not -path "./vendor/*" -print0 | xargs -0 -n1 dirname | sort -u)
-# iterate safely over lines
-while IFS= read -r d; do
-  # skip empty
-  [ -z "$d" ] && continue
-  # skip vendor and hidden .git
+
+# Use bash nullglob and safe find parsing to collect package directories
+shopt -s nullglob
+declare -A seen_dirs=()
+pkg_dirs=()
+while IFS= read -r -d '' f; do
+  d=$(dirname "$f")
   case "$d" in
     ./.git*|./vendor*) continue ;;
   esac
+  if [ -z "${seen_dirs[$d]:-}" ]; then
+    seen_dirs[$d]=1
+    pkg_dirs+=("$d")
+  fi
+done < <(find . -type f -name '*.go' -not -path './.git/*' -not -path './vendor/*' -print0)
 
-  # count Go files in directory (numeric)
-  gofiles=$(find "$d" -maxdepth 1 -type f -name "*.go" | wc -l | tr -d ' ')
-  if [ "$gofiles" -eq 0 ]; then
+for d in "${pkg_dirs[@]}"; do
+  # skip empty
+  [ -z "$d" ] && continue
+
+  # count Go files in directory
+  gofiles_count=$(find "$d" -maxdepth 1 -type f -name "*.go" | wc -l | tr -d ' ')
+  if [ "$gofiles_count" -eq 0 ]; then
     continue
   fi
 
-  # count test files
-  testfiles=$(find "$d" -maxdepth 1 -type f -name "*_test.go" | wc -l | tr -d ' ')
-  if [ "$testfiles" -eq 0 ]; then
+  # gather test files using nullglob behavior
+  test_files=("$d"/*_test.go)
+  if [ "${#test_files[@]}" -eq 0 ]; then
     echo "ERROR: package $d has Go files but no *_test.go files"
     FAIL=1
     continue
   fi
 
-  # check for benchmark and example in test files — count matches
-  has_bench=$(find "$d" -maxdepth 1 -type f -name "*_test.go" -exec grep -E "^\s*func\s+Benchmark" -H {} \; 2>/dev/null | wc -l | tr -d ' ')
-  has_example=$(find "$d" -maxdepth 1 -type f -name "*_test.go" -exec grep -E "^\s*func\s+Example" -H {} \; 2>/dev/null | wc -l | tr -d ' ')
+  # check for benchmark and example in test files quietly
+  has_bench=0
+  has_example=0
+  for tf in "${test_files[@]}"; do
+    if grep -E -q '^\s*func\s+Benchmark' "$tf"; then has_bench=1; fi
+    if grep -E -q '^\s*func\s+Example' "$tf"; then has_example=1; fi
+    # short-circuit
+    if [ "$has_bench" -eq 1 ] && [ "$has_example" -eq 1 ]; then break; fi
+  done
 
   if [ "$has_bench" -eq 0 ]; then
     echo "ERROR: package $d has no benchmarks (func Benchmark...) in tests"
@@ -65,8 +91,7 @@ while IFS= read -r d; do
     echo "ERROR: package $d has no examples (func Example...) in tests"
     FAIL=1
   fi
-
-done <<< "$PKG_DIRS"
+done
 
 if [ "$FAIL" -ne 0 ]; then
   echo "One or more packages are missing required tests/benchmarks/examples"
