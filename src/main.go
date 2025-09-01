@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-
-	"github.com/Caracal-IT/hydra/gohydra"
 )
 
+// Greeting returns the standard hydra greeting string.
+func Greeting() string { return "Hello from Hydra!" }
+
 func main() {
-	fmt.Println(gohydra.Greeting())
+	fmt.Println(Greeting())
 }
