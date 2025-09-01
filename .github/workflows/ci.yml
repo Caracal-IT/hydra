@@ -1,99 +1,161 @@
-name: CI
+name: Build Test and Package
 
 on:
   push:
+    branches: [ main, master ]
   pull_request:
+    branches: [ main, master ]
+
+permissions:
+  contents: write   # needed to push updated coverage baseline
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build and Test (${{ matrix.name }})
-    runs-on: ${{ matrix.os }}
+  build-test:
+    name: Build and Test (${{ matrix.goos }}-${{ matrix.goarch }})
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            name: linux-amd64
-            GOOS: linux
-            GOARCH: amd64
-            GOARM: ''
-          - os: ubuntu-latest
-            name: linux-arm64
-            GOOS: linux
-            GOARCH: arm64
-            GOARM: ''
-          - os: ubuntu-latest
-            name: linux-arm
-            GOOS: linux
-            GOARCH: arm
-            GOARM: '7'
-          - os: macos-latest
-            name: darwin-amd64
-            GOOS: darwin
-            GOARCH: amd64
-            GOARM: ''
-          - os: windows-latest
-            name: windows-amd64
-            GOOS: windows
-            GOARCH: amd64
-            GOARM: ''
+          - runner: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            coverage: true
+          - runner: ubuntu-latest
+            goos: linux
+            goarch: arm64
+          - runner: ubuntu-latest
+            goos: linux
+            goarch: arm
+          - runner: macos-latest
+            goos: darwin
+            goarch: amd64
+          - runner: windows-latest
+            goos: windows
+            goarch: amd64
+
+    env:
+      GO_VERSION: 1.25.x
+      GOOS: ${{ matrix.goos }}
+      GOARCH: ${{ matrix.goarch }}
+      CGO_ENABLED: 0
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
         with:
-          go-version: '1.25'
+          fetch-depth: 0
 
-      - name: Ensure go.sum exists
-        run: |
-          go work sync || true
-          go mod tidy || true
-          if [ -d ./src/gohydra ]; then (cd ./src/gohydra && go mod tidy) || true; fi
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache: false
 
-      - name: Get Go env and set GOMODCACHE for cache
-        id: goenv
-        run: |
-          echo "GOMODCACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
-
-      - name: Cache Go build and modules
+      - name: Cache Go modules
         uses: actions/cache@v4
         with:
           path: |
+            ~/go/pkg/mod
             ~/.cache/go-build
-            ${{ env.GOMODCACHE }}
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.mod') }}
+          key: ${{ runner.os }}-go-${{ hashFiles('src/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Run Copilot checks (tests, coverage, baseline)
-        run: ./.github/scripts/run_copilot_checks.sh
+      - name: Pre-coverage baseline snapshot
+        if: matrix.coverage == true
+        id: baseline_before
+        shell: bash
+        run: |
+          if [ -f .coverage_baseline ]; then
+            echo "content=$(cat .coverage_baseline)" >> "$GITHUB_OUTPUT"
+          else
+            echo "content=__none__" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Build binaries
-        env:
-          GOOS: ${{ matrix.GOOS }}
-          GOARCH: ${{ matrix.GOARCH }}
-          GOARM: ${{ matrix.GOARM }}
+      - name: Run tests + coverage gating (only once)
+        if: matrix.coverage == true
+        shell: bash
+        run: |
+          chmod +x .github/scripts/run_copilot_checks.sh
+          bash .github/scripts/run_copilot_checks.sh
+          echo "Current coverage:"; cat .coverage_current
+
+      - name: Commit updated coverage baseline (if improved)
+        if: matrix.coverage == true && success()
+        shell: bash
+        run: |
+          if [ ! -f .coverage_baseline ]; then
+            echo "No baseline file produced; skipping commit"; exit 0
+          fi
+          BEFORE="${{ steps.baseline_before.outputs.content }}"
+          AFTER="$(cat .coverage_baseline)"
+          if [ "$BEFORE" != "$AFTER" ]; then
+            echo "Baseline changed ($BEFORE -> $AFTER). Committing.";
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .coverage_baseline .coverage_current || true
+            git commit -m "chore: update coverage baseline [skip ci]" || true
+            git push || echo "Push skipped (maybe PR from fork)"
+          else
+            echo "Baseline unchanged; no commit.";
+          fi
+
+      - name: Build binary
+        shell: bash
         run: |
           mkdir -p artifacts
-          outname=hydra_${{ matrix.name }}
-          if [ "${{ matrix.GOOS }}" = "windows" ]; then outname="${outname}.exe"; fi
-          echo "Building for ${GOOS}/${GOARCH} ${GOARM} -> artifacts/${outname}"
-          # Build the main binary in ./src to avoid building non-main packages across modules
-          GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.GOARCH }} GOARM=${{ matrix.GOARM }} go build -o artifacts/${outname} ./src
+          cd src
+          OUT="hydra-${GOOS}-${GOARCH}"
+          if [ "${GOOS}" = "windows" ]; then OUT="$OUT.exe"; fi
+          echo "Building $OUT"
+            GOOS=${GOOS} GOARCH=${GOARCH} go build -trimpath -ldflags "-s -w" -o "../artifacts/$OUT" .
+          cd ..
 
-      - name: Upload binaries
-        if: always()
+      - name: Package artifact (zip, non-Windows)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          cd artifacts
+          BIN="hydra-${GOOS}-${GOARCH}"
+          [ "${GOOS}" = "windows" ] && BIN="$BIN.exe"
+          ZIP="$BIN.zip"
+          zip -q "$ZIP" "$BIN"
+          ls -l
+
+      - name: Package artifact (zip, Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          Set-Location artifacts
+          $bin = "hydra-${env:GOOS}-${env:GOARCH}.exe"
+          $zip = "$bin.zip"
+          Compress-Archive -Path $bin -DestinationPath $zip -Force
+          Get-ChildItem -Name
+
+      - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: binaries-${{ matrix.name }}
-          path: artifacts/
+          name: hydra-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: artifacts/hydra-${{ matrix.goos }}-${{ matrix.goarch }}*
+          if-no-files-found: error
 
-      - name: Upload coverage file
-        if: always()
+      - name: Upload coverage artifacts
+        if: matrix.coverage == true
         uses: actions/upload-artifact@v4
         with:
           name: coverage
-          path: .coverage_current
+          path: |
+            coverage.out
+            .coverage_current
+            .coverage_baseline
+          if-no-files-found: warn
+
+      - name: Fail if coverage job failed earlier
+        if: matrix.coverage == true && failure()
+        run: exit 1

@@ -7,11 +7,10 @@
 *.dylib
 *.test
 *.out
-coverage.out
 .coverage_current
-.coverage_baseline
+# .coverage_baseline must be committed to track coverage history
+# .coverage_previous optional historical copies can be ignored
 .coverage_previous
-.coverage_baseline
 
 # Go modules and cache
 **/vendor/
@@ -49,8 +48,8 @@ Desktop.ini
 *.coverprofile
 coverage.out
 
-# Ensure src folder remains in repo
-/src/
+# Ensure src folder remains in repo (do not ignore it)
+# /src/
 
 # Keep local environment files out
 .env
@@ -59,6 +58,7 @@ coverage.out
 # Accept common binary directories
 dist/
 build/
+artifacts/
 
 # Allow keep of important repo files (explicit)
 !.github/
