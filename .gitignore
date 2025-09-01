@@ -68,4 +68,8 @@ README.md
 /data/postgres/
 /data/postgres/hydra/
 
+# ELK stack local env and data
+build/docker/elk/.env
+data/elk/
+
 # End of file
