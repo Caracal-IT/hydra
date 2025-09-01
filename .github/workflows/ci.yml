@@ -50,8 +50,13 @@ jobs:
       - name: Ensure go.sum exists
         run: |
           go work sync || true
-          go mod tidy ./... || true
+          go mod tidy || true
           if [ -d ./src/gohydra ]; then (cd ./src/gohydra && go mod tidy) || true; fi
+
+      - name: Get Go env and set GOMODCACHE for cache
+        id: goenv
+        run: |
+          echo "GOMODCACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
 
       - name: Cache Go build and modules
         uses: actions/cache@v4
@@ -59,7 +64,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ${{ env.GOMODCACHE }}
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.mod') }}
           restore-keys: |
             ${{ runner.os }}-go-
 
@@ -76,17 +81,19 @@ jobs:
           outname=hydra_${{ matrix.name }}
           if [ "${{ matrix.GOOS }}" = "windows" ]; then outname="${outname}.exe"; fi
           echo "Building for ${GOOS}/${GOARCH} ${GOARM} -> artifacts/${outname}"
-          GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.GOARCH }} GOARM=${{ matrix.GOARM }} go build -o artifacts/${outname} ./...
+          # Build the main binary in ./src to avoid building non-main packages across modules
+          GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.GOARCH }} GOARM=${{ matrix.GOARM }} go build -o artifacts/${outname} ./src
 
       - name: Upload binaries
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: binaries-${{ matrix.name }}
           path: artifacts/
 
       - name: Upload coverage file
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: .coverage_current
-
