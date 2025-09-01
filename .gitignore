@@ -23,9 +23,9 @@
 .vscode/
 
 # Docker
-Dockerfile
+# Docker-related files are under build/docker now
+# (top-level Dockerfile/docker-compose.yml moved to build/docker/)
 .dockerignore
-docker-compose.yml
 **/docker-compose.*.yml
 
 # Misc
@@ -51,9 +51,9 @@ coverage.out
 # Ensure src folder remains in repo (do not ignore it)
 # /src/
 
-# Keep local environment files out
+# Keep local environment file out but allow the example template
 .env
-.env.*
+!.env.example
 
 # Accept common binary directories
 dist/
@@ -63,3 +63,9 @@ artifacts/
 # Allow keep of important repo files (explicit)
 !.github/
 README.md
+
+# Local Postgres data (keep DB files out of git)
+/data/postgres/
+/data/postgres/hydra/
+
+# End of file
