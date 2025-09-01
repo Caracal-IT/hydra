@@ -31,7 +31,6 @@ jobs:
           go-version: '1.25'
       - name: Initialize Go modules
         run: |
-          cd src
           go mod tidy
       - name: Cache Go modules
         uses: actions/cache@v4
@@ -39,7 +38,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('src/go.sum', 'src/go.mod') }}
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum', 'go.mod') }}
           restore-keys: |
             ${{ runner.os }}-go-
       - name: Run Unit Tests and Collect Coverage
@@ -51,13 +50,14 @@ jobs:
           cd src
           COVERAGE=$(go tool cover -func=coverage.out | grep total: | awk '{print substr($3, 1, length($3)-1)}')
           echo "Current coverage: $COVERAGE%"
-          echo $COVERAGE > ../.coverage_current
+          echo $COVERAGE > .coverage_current_tmp
+          mv .coverage_current_tmp ../.coverage_current
       - name: Compare Coverage to Previous Build
         id: coverage-compare
         run: |
-          if [ -f ../.coverage_previous ]; then
-            PREV=$(cat ../.coverage_previous)
-            CURR=$(cat ../.coverage_current)
+          if [ -f .coverage_previous ]; then
+            PREV=$(cat .coverage_previous)
+            CURR=$(cat .coverage_current)
             echo "Previous coverage: $PREV%"
             echo "Current coverage: $CURR%"
             awk -v prev="$PREV" -v curr="$CURR" 'BEGIN { if (curr < prev) exit 1 }'
@@ -65,7 +65,7 @@ jobs:
       - name: Save Coverage for Next Build
         if: always()
         run: |
-          cp ../.coverage_current ../.coverage_previous
+          cp .coverage_current .coverage_previous || true
       - name: Upload Coverage Data
         if: always()
         uses: actions/upload-artifact@v4
