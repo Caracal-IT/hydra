@@ -1,0 +1,11 @@
+level: info
+console_format: text # or "json"
+elasticsearch:
+  # Enable for local integration testing with the repository's ELK stack.
+  enabled: true
+  url: https://localhost:9200
+  index: hydra-logs-000001
+  username: "elastic"
+  password: "ElasticPassword123"
+  insecure_skip_verify: true
+  retries: 3
