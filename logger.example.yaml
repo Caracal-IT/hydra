@@ -1,0 +1,9 @@
+level: info
+console_format: text # or "json"
+elasticsearch:
+  enabled: true
+  url: http://localhost:9200
+  index: hydra-logs-000001
+  username: ""
+  password: ""
+
